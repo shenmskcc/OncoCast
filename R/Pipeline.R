@@ -27,7 +27,7 @@
 # Cross validation will be automatically performed with 50 folds
 
 
-#' VariableSelection
+#' OncoCast
 #'
 #' This functions let's the user select one or multiple machine learning algorithms. This is intended for survival data, and
 #' the mehods can handle left truncated survival data. The inputed data should be a data frame with columns representing the
@@ -58,13 +58,13 @@
 #' @return fit : For LASSO, RIDGE and ENET methods return the refitted cox proportional hazard model with the beta coefficients found
 #' in the penalized regression model.
 #' @return Selection : The number of times each variables is selected accross all the trees. For the CF method only.
-#' @keywords Selection
+#' @keywords Selection, penalized regression
 #' @export
-#' @examples library(SurvivalVariableSelection)
-# test <- VariableSelection(data=survData,formula=Surv(time,status)~.,
-#                           method=c("LASSO"),
-#                           runs = 5,cores = 1,sampling = "cv",
-#                           pathResults = "./Test/",studyType = "ExampleRun",save=F)
+#' @examples library(OncoCast)
+#' test <- OncoCast(data=survData,formula=Surv(time,status)~.,
+#'                           method=c("LASSO"),
+#'                           runs = 5,cores = 1,sampling = "cv",
+#'                           pathResults = "./Test/",studyType = "ExampleRun",save=F)
 #' @import survival
 #' @import penalized
 #' @import foreach
@@ -73,7 +73,7 @@
 #' @import stats
 
 
-VariableSelection <- function (data,formula, method = c("LASSO","RIDGE","ENET"),
+OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
                                runs = 100,penalizeCol = NULL,
                                sampling = "cv",
                                cores = 1,
@@ -412,13 +412,12 @@ VariableSelection <- function (data,formula, method = c("LASSO","RIDGE","ENET"),
 }
 
 
-# setwd("~/Desktop/Packages/SurvivalVariableSelectionGit/Test/")
-# library(SurvivalVariableSelection)
-# test <- VariableSelection(data=survData,formula=Surv(time,status)~.,
-#                   method=c("LASSO","RIDGE","ENET"),
-#                   runs = 20,cores = 1,sampling = "cv",
-#                   pathResults = "./",studyType = "ExampleRun",save=T)
-# #
-# out <- getResults(test$LASSO,numGroups=2,cuts=0.5,geneList=NULL)
+# library(OncoCast)
+# test <- OncoCast(data=survData,formula=Surv(time,status)~.,
+#                   method=c("LASSO"),
+#                   runs = 50,cores = 1,sampling = "cv",
+#                   pathResults = "./",studyType = "ExampleRun",save=F)
+#
+# out <- getResults_OC(test$LASSO,numGroups=2,cuts=0.5,geneList=NULL,mut.data = T)
 
 

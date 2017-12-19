@@ -50,11 +50,11 @@
 #' @keywords Results
 #' @export
 #' @examples library(SurvivalVariableSelection)
-#' test <- VariableSelection(data=survData,formula=Surv(time,status)~.,
-#                          method=c("LASSO"),
-#                          runs = 5,cores = 1,sampling = "cv",
-#                          pathResults = "./Test/",studyType = "ExampleRun",save=F)
-#' out <- getResults(test$LASSO,numGroups=2,cuts=0.5,geneList=NULL)
+#' test <- OncoCast(data=survData,formula=Surv(time,status)~.,
+#'                          method=c("LASSO"),
+#'                          runs = 5,cores = 1,sampling = "cv",
+#'                          pathResults = "./Test/",studyType = "ExampleRun",save=F)
+#' out <- getResults_OC(test$LASSO,numGroups=2,cuts=0.5,geneList=NULL)
 #' @import survival
 #' @import ggplot2
 #' @import plotly
@@ -66,7 +66,7 @@
 #' @import data.table
 
 
-getResults <- function(VarSelectObject,numGroups=2,cuts=0.5,geneList=NULL,mut.data=F){
+getResults_OC <- function(VarSelectObject,numGroups=2,cuts=0.5,geneList=NULL,mut.data=F){
 
 
   ############## CHECKS
@@ -186,7 +186,8 @@ getResults <- function(VarSelectObject,numGroups=2,cuts=0.5,geneList=NULL,mut.da
     average.risk <- apply(final.pred,1,function(x){
       mean(as.numeric(x),na.rm = TRUE)
     })
-    RiskScore <- rescale(average.risk, to = c(0, 10), from = range(average.risk, na.rm = TRUE, finite = TRUE))
+    average.risk[which(is.na(average.risk))] <- NA
+    RiskScore <- rescale(as.numeric(average.risk), to = c(0, 10), from = range(average.risk, na.rm = TRUE, finite = TRUE))
     summary.RiskScore <- round(as.data.frame(c(quantile(RiskScore,c(0.1,0.25,0.5,0.75,0.9),na.rm = TRUE))),digits = 2)
     colnames(summary.RiskScore) <- "Risk Score"
     rownames(summary.RiskScore) <- c("Lower 10%","1st Quarter","Median","3rd Quarter","Upper 10%")
@@ -211,11 +212,17 @@ getResults <- function(VarSelectObject,numGroups=2,cuts=0.5,geneList=NULL,mut.da
   ####### RISK STRATIFICATION #########
   #####################################
 
+
   data$lvl4Groups <- rep(NA,nrow(data))
   qts <- as.numeric(quantile(average.risk,cuts,na.rm = T))
 
   if(numGroups ==2){
     for(i in 1:nrow(data)){
+
+      if(is.character(try(average.risk[i] < qts,silent=T))){
+        stop("ERROR : Increase the number of runs. Some patients were never attributed to the testing set. Recommended value is above 20")
+      }
+
       if(average.risk[i] < qts) {
         data$lvl4Groups[i] <- "Low"
       }
@@ -229,6 +236,11 @@ getResults <- function(VarSelectObject,numGroups=2,cuts=0.5,geneList=NULL,mut.da
   if(numGroups == 3){
 
     for(i in 1:nrow(data)){
+
+      if(is.character(try(average.risk[i] < qts,silent=T))){
+        stop("ERROR : Increase the number of runs. Some patients were never attributed to the testing set. Recommended value is above 20")
+      }
+
       if(average.risk[i] < qts[1]) {
         data$lvl4Groups[i] <- "Low"
       }
@@ -243,6 +255,11 @@ getResults <- function(VarSelectObject,numGroups=2,cuts=0.5,geneList=NULL,mut.da
 
   if(numGroups == 4){
     for(i in 1:nrow(data)){
+
+      if(is.character(try(average.risk[i] < qts,silent=T))){
+        stop("ERROR : Increase the number of runs. Some patients were never attributed to the testing set. Recommended value is above 20")
+      }
+
       if(average.risk[i] < qts[1]) {
         data$lvl4Groups[i] <- "Low"
       }
