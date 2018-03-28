@@ -7,5 +7,5 @@ Maintainer: Axel Martin <martina9@mskcc.org>
 Description: Algorithm to implement penalized proportional hazards model in an ensemble learning framework 
              for predicting survival outcome using tumor sequencing data.
 License: GPL
-Depends: R (>= 3.4.0), penalized, survival, foreach, doParallel
+Depends: R (>= 3.4.0)
 
