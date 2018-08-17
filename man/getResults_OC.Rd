@@ -55,16 +55,17 @@ the manually inputted gene list. Each of the pies represent one of the risk grou
 GenesUsed Character vector of the features used to make the pie charts.
 }
 \description{
-This functions let's the user study the output of the VariableSelection function. This function takes as input
+This functions let's the user study the output of the OncoCast function. This function takes as input
 one of the (or the one) objects returned from the different machine learning algorithms chosen previously.
 Only one such object can be inputted everytime in the getResults function.
 }
 \examples{
-library(SurvivalVariableSelection)
+library(OncoCast)
 test <- OncoCast(data=survData,formula=Surv(time,status)~.,
                          method=c("LASSO"),
                          runs = 5,cores = 1,sampling = "cv",
                          pathResults = "./Test/",studyType = "ExampleRun",save=F)
 out <- getResults_OC(test$LASSO,numGroups=2,cuts=0.5,geneList=NULL)
+out$ciSummary
 }
 \keyword{Results}

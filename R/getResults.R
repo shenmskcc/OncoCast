@@ -19,7 +19,7 @@
 
 #' getResults
 #'
-#' This functions let's the user study the output of the VariableSelection function. This function takes as input
+#' This functions let's the user study the output of the OncoCast function. This function takes as input
 #' one of the (or the one) objects returned from the different machine learning algorithms chosen previously.
 #' Only one such object can be inputted everytime in the getResults function.
 #' @param VarSelectObject A list object outputed by the VariableSelection function.
@@ -55,6 +55,7 @@
 #'                          runs = 5,cores = 1,sampling = "cv",
 #'                          pathResults = "./Test/",studyType = "ExampleRun",save=F)
 #' out <- getResults_OC(test$LASSO,numGroups=2,cuts=0.5,geneList=NULL)
+#' out$ciSummary
 #' @import survival
 #' @import ggplot2
 #' @import plotly
@@ -72,6 +73,9 @@ getResults_OC <- function(VarSelectObject,numGroups=2,cuts=0.5,geneList=NULL,mut
   ############## CHECKS
   if(!(numGroups %in% 2:4)) {stop("ERROR : You must use a number of groups between 2 and 4. We are working on implementing a broader version")}
   if(max(cuts) >= 1 || min(cuts) <= 0){stop("ERROR : You must select cuts that are between 0 and 1 (Not included).")}
+  # method <- VarSelectObject[[1]]$method
+  # m=1
+  # while(method){method <- VarSelectObject[[m]]$method,m = m+1}
   if(!(VarSelectObject[[1]]$method %in% c("LASSO","RIDGE","ENET"))){"ERROR : The inputted object is NOT an output
     of the VariableSelection function."}
 
@@ -86,7 +90,9 @@ getResults_OC <- function(VarSelectObject,numGroups=2,cuts=0.5,geneList=NULL,mut
   library(plyr)
 
   ##### COX ######
+
   data <- VarSelectObject[[1]]$data
+
   ## determine if left truncated
   if(length(grep("time",colnames(data)))  == 1) {LT = FALSE}
   if(length(grep("time",colnames(data)))  == 2) {LT = TRUE}
@@ -103,7 +109,7 @@ getResults_OC <- function(VarSelectObject,numGroups=2,cuts=0.5,geneList=NULL,mut
 
   #try(setwd("./results/"))
 
-  if(VarSelectObject[[1]]$method %in% c("LASSO","RIDGE","ENET")) {
+ # if(method %in% c("LASSO","RIDGE","ENET")) {
 
     ConcordanceIndex <- as.data.frame(as.vector(unlist(sapply(VarSelectObject, "[[", "CI"))))
     summary.CI <- round(as.data.frame(c(quantile(ConcordanceIndex[,1],c(0.1,0.25,0.5,0.75,0.9),na.rm = T))),digits = 2)
@@ -145,7 +151,7 @@ getResults_OC <- function(VarSelectObject,numGroups=2,cuts=0.5,geneList=NULL,mut
     colnames(allCoefs) <- Variables
 
     for(x in 1:length(VarSelectObject)){
-      if(!is.na(VarSelectObject[[x]]$fit[1])){
+      if(!is.null(VarSelectObject[[x]]$fit[1])){
         coefsValues <- VarSelectObject[[x]]$fit[,1]
         allCoefs[x,match(names(coefsValues),colnames(allCoefs))] <- as.numeric(coefsValues)}
     }
@@ -187,10 +193,13 @@ getResults_OC <- function(VarSelectObject,numGroups=2,cuts=0.5,geneList=NULL,mut
       mean(as.numeric(x),na.rm = TRUE)
     })
     average.risk[which(is.na(average.risk))] <- NA
-    RiskScore <- rescale(as.numeric(average.risk), to = c(0, 10), from = range(average.risk, na.rm = TRUE, finite = TRUE))
-    summary.RiskScore <- round(as.data.frame(c(quantile(RiskScore,c(0.1,0.25,0.5,0.75,0.9),na.rm = TRUE))),digits = 2)
+    to <- c(0,10)
+    from <- range(average.risk, na.rm = TRUE, finite = TRUE)
+    RiskScore <- (as.numeric(average.risk)-from[1])/diff(from)*diff(to)+to[1]
+    #RiskScore <- rescale(as.numeric(average.risk), to = c(0, 10), from = range(average.risk, na.rm = TRUE, finite = TRUE))
+    summary.RiskScore <- round(as.data.frame(c(quantile(RiskScore,c(0.1,0.25,0.33,0.5,0.66,0.75,0.9),na.rm = TRUE))),digits = 2)
     colnames(summary.RiskScore) <- "Risk Score"
-    rownames(summary.RiskScore) <- c("Lower 10%","1st Quarter","Median","3rd Quarter","Upper 10%")
+    rownames(summary.RiskScore) <- c("Lower 10%","1st Quarter","1st Tertile","Median","2nd Tertile","3rd Quarter","Upper 10%")
     ## refit coxph model with average risk as covariate
     meanRS <- mean(RiskScore)
     #RiskScore <- average.risk #- meanRS
@@ -200,12 +209,12 @@ getResults_OC <- function(VarSelectObject,numGroups=2,cuts=0.5,geneList=NULL,mut
 
     RiskHistogram <- ggplot(Risk, aes(x = RiskScore, y = ..density..)) +
       geom_histogram(show.legend = FALSE, aes(fill=..x..),
-                     breaks=seq(min(Risk$RiskScore,na.rm = T), max(Risk$RiskScore,na.rm = T), by=0.05)) +
+                     breaks=seq(min(Risk$RiskScore,na.rm = T), max(Risk$RiskScore,na.rm = T), by=0.25)) +
       geom_density(show.legend = FALSE) +
       theme_minimal() +
       labs(x = "Average risk score", y = "Density") +
       scale_fill_gradient(high = "red", low = "green")
-  }
+  #}
 
 
   #####################################
@@ -313,11 +322,11 @@ getResults_OC <- function(VarSelectObject,numGroups=2,cuts=0.5,geneList=NULL,mut
                 na.action=na.exclude)
   log.test.pval <- as.vector(summary(fit0)[10][[1]])[3]
   CI <- as.numeric(as.vector(summary(fit0)[14])[[1]][1])
-  if(LT) limit <- as.numeric(quantile(data$time2,0.95))
-  if(!LT) limit <- as.numeric(quantile(data$time,0.95))
+  if(LT) limit <- as.numeric(quantile(data$time2,0.9))
+  if(!LT) limit <- as.numeric(quantile(data$time,0.9))
   KM_2LVLS <- ggsurvplot(survfit(survObj ~ RiskGroup,data=data, conf.type = "log-log"),conf.int  = TRUE,surv.median.line = "hv",
                          data = data,xlim=c(0,limit),break.time.by = 6) + xlab("Time (Months)") +
-    labs(title = paste("Kaplan Meier Plot (p-value : " ,round(log.test.pval,digits =4)," and CI : ",round(CI,digits=4), ")",sep=""))+
+    labs(title = paste("Kaplan Meier Plot (p-value : " ,round(log.test.pval,digits =4),")",sep=""))+
     geom_vline(xintercept=intercept,col="red", lty = 2)
 
 
@@ -335,11 +344,12 @@ getResults_OC <- function(VarSelectObject,numGroups=2,cuts=0.5,geneList=NULL,mut
     if(LT == TRUE){NewObject <- with(data[data$lvl4Groups == Groups[i],],Surv(time1,time2,status))}
     if(LT == FALSE){NewObject <- with(data[data$lvl4Groups == Groups[i],],Surv(time,status))}
     Fit <- survfit(NewObject ~ 1,data=data[data$lvl4Groups == Groups[i],], conf.type = "log-log")
-    med.index <- which.min(abs(Fit$surv-0.5))
+    # med.index <- which.min(abs(Fit$surv-0.5))
     YR3.index <- which.min(abs(Fit$time-YR1))
     YR5.index <- which.min(abs(Fit$time-YR3))
-    survivalGroup[i,] <- c(round(Fit$time[med.index],digits=2),paste0("(",round(Fit$time[which.min(abs(Fit$lower-0.5))],digits=2),",",
-                                                                      round(Fit$time[which.min(abs(Fit$upper-0.5))],digits=2),")"),
+    survivalGroup[i,] <- c(as.numeric(round(summary(Fit)$table[7],digits=2)),
+                           paste0("(",as.numeric(round(summary(Fit)$table[8],digits=2)),",",
+                                  as.numeric(round(summary(Fit)$table[9],digits=2)),")"),
                            round(Fit$surv[YR3.index],digits=2),round(Fit$surv[YR5.index],digits=2))
   }
 
@@ -475,6 +485,7 @@ getResults_OC <- function(VarSelectObject,numGroups=2,cuts=0.5,geneList=NULL,mut
       colnames(inter.dups)[ncol(inter.dups)] <- "N"
       profiles.inter <- cbind(inter.dups[order(-inter.dups$N),],
                               paste("Profile",1:nrow(inter.dups)))
+      colnames(profiles.inter) <- c("Groups","profile","N","Profile")
       scenarios <- lapply(1:nrow(profiles.inter),function(x){
         geneList <- as.numeric(gsub(".*=","",unlist(strsplit(as.character(profiles.inter$profile[x]),split=","))))
       })
@@ -651,7 +662,7 @@ getResults_OC <- function(VarSelectObject,numGroups=2,cuts=0.5,geneList=NULL,mut
   }
 
   return(list("ciSummary" = CI.BP,"inflPlot" = influencePlot,"topHits" = topHits,"average.risk"=average.risk,"data.out"= data,
-              "selectInflPlot" = selectInflPlot,"RiskRefit"=refit.risk,
+              "selectInflPlot" = selectInflPlot,"RiskRefit"=refit.risk,"scaled.risk"=RiskScore,
               "RiskHistogram"=RiskHistogram,"Fits"=allCoefs,"time.type"=time.type,
               "RiskScoreSummary"=as.data.frame(t(summary.RiskScore)),"KM_Plot" = KM_2LVLS , "mut_Plot" = mut_2LVLS,
               "SurvSum" = survivalGroup,"PieChart"=pie.chart,"GenesUsed"=useGenes))
