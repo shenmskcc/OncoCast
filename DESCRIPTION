@@ -10,3 +10,17 @@ License: What license is it under?
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 6.0.1
+Imports: 
+    survival,
+    penalized,
+    foreach,
+    doParallel,
+    party,
+    stats,
+    ggplot2,
+    plotly,
+    plyr,
+    reshape2,
+    scales,
+    survminer,
+    data.table

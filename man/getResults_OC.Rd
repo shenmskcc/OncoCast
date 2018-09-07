@@ -2,13 +2,13 @@
 % Please edit documentation in R/getResults.R
 \name{getResults_OC}
 \alias{getResults_OC}
-\title{getResults}
+\title{getResults_OC}
 \usage{
-getResults_OC(VarSelectObject, numGroups = 2, cuts = 0.5, geneList = NULL,
+getResults_OC(OC_object, numGroups = 2, cuts = 0.5, geneList = NULL,
   mut.data = F)
 }
 \arguments{
-\item{VarSelectObject}{A list object outputed by the VariableSelection function.}
+\item{OC_object}{A list object outputed by the OncoCast function.}
 
 \item{numGroups}{The number of groups to be made when stratifying by risk groups. Options are 2,3 and 4 (for now implementing
 broader version). Default is 2.}
@@ -16,7 +16,10 @@ broader version). Default is 2.}
 \item{cuts}{Numeric vector of the points in the distribution of risk scores where groups will be splitted. Needs to be of length
 numGroups - 1. eg : c(0.25,0.5,0.75) when numgroups is 4. Default is 0.5.}
 
-\item{geneList}{Optional character vector of gene names to use to generate the pie charts.}
+\item{geneList}{Optional character vector of gene names to use to generate the pie charts. Default is NULL, which
+leads to using the 5 most frequently selected features.}
+
+\item{mut.data}{Boolean argument indicating if the user is using mutation predictors (binary data). Default is FALSE.}
 }
 \value{
 ciSummary Summary of the distribution of the concordance index accross all runs.
@@ -57,15 +60,14 @@ GenesUsed Character vector of the features used to make the pie charts.
 \description{
 This functions let's the user study the output of the OncoCast function. This function takes as input
 one of the (or the one) objects returned from the different machine learning algorithms chosen previously.
-Only one such object can be inputted everytime in the getResults function.
+Only one such object can be inputted at a time in the getResults_OC function.
 }
 \examples{
 library(OncoCast)
 test <- OncoCast(data=survData,formula=Surv(time,status)~.,
-                         method=c("LASSO"),
-                         runs = 5,cores = 1,sampling = "cv",
-                         pathResults = "./Test/",studyType = "ExampleRun",save=F)
-out <- getResults_OC(test$LASSO,numGroups=2,cuts=0.5,geneList=NULL)
-out$ciSummary
+                          method=c("LASSO"),
+                          runs = 25,cores = 1,sampling = "cv",
+                          pathResults = "./Test/",studyType = "ExampleRun",save=F)
+out <- getResults_OC(test$LASSO,numGroups=2,cuts=0.5,geneList=NULL,mut.data=T)
 }
 \keyword{Results}

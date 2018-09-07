@@ -5,13 +5,14 @@
 \title{OncoCast}
 \usage{
 OncoCast(data, formula, method = c("LASSO", "RIDGE", "ENET"), runs = 100,
-  penalizeCol = NULL, sampling = "cv", cores = 1, pathResults = "",
-  studyType = "", save = T)
+  sampling = "cv", cores = 1, pathResults = "", studyType = "",
+  save = T)
 }
 \arguments{
-\item{data}{name of the data frame with variables as columns and patients as rows. Must have no missing data and should contain only the outcome and the predictors to be used.}
+\item{data}{Data frame with variables as columns and patients as rows. Must have no missing data and should contain only the outcome and the predictors to be used.
+We recommend the time variables to use the month unit.}
 
-\item{formula}{a survival formula with the names of the variables to be used in the data frame provided in the first argument.
+\item{formula}{A survival formula with the names of the variables to be used in the data frame provided in the first argument.
 eg : Surv(time,status)~. or Surv(time1,time2,status)~. (Note all the variable available will be used regardless of the right
 side of the formula).}
 
@@ -20,19 +21,16 @@ side of the formula).}
 
 \item{runs}{Number of cross validation iterations to be performed. Default is 100.}
 
-\item{penalizeCol}{Name of variables you do not with to penalize. Default is NULL. Names must be unique and exact matches.}
-
 \item{sampling}{The method use for sampling, options are bootstrapping ("boot") and cross-validation ("cv").
 Default is cross-validation.}
 
 \item{cores}{If you wish to run this function in parallel set the number of cores to be used to be greater than 1. Default is 1.
 CAUTION : Overloading your computer can lead to serious issues, please check how many cores are available on your machine
-before selecting an option! (Use detectCores())}
+before selecting an option!}
 
-\item{pathResults}{String of the path to the user wishes to output the results. Default is current directory.}
+\item{pathResults}{String of where the users wishes to output the results. Default is current directory.}
 
-\item{studyType}{String that will be the prefix to the name of the outputed results. All results saved will start that string.
-Default is empty.}
+\item{studyType}{String that will be the prefix to the name of the outputed results. Default is empty.}
 
 \item{save}{Boolean value : Default is TRUE, the results will be saved with the specified name in the specified path. If FALSE the results
 will be returned directly from the function and won't be saved.}
@@ -40,29 +38,32 @@ will be returned directly from the function and won't be saved.}
 \value{
 CI : For each iteration the concordance index of the generated model will be calculated on the testing set
 
-predicted : The predicted risk for all the patients in the testing set
-
 fit : For LASSO, RIDGE and ENET methods return the refitted cox proportional hazard model with the beta coefficients found
 in the penalized regression model.
 
-data : the data used to fit the model (saved only in the first iteration results).
+predicted : The predicted risk for all the patients in the testing set.
+
+means : The mean value of the predictors that were not shrunken to zero in the penalized regression method.
+
+method : The name of the method that was used to generate the output.
+
+data : The data used to fit the model (available only in the first element of the list).
 }
 \description{
-This functions let's the user select one or multiple machine learning algorithms. This is intended for survival data, and
-the mehods can handle left truncated survival data. The inputted data should be a data frame with columns representing the
-variables of interest while the rows should correspond to patients.
-The output will vary depending on the methods. However they will all return a list of length equal to the number of
-crossvalidation performed, including the predicted risk score at each cross validation for all the patients falling in the
-test set.
+This functions let's the user select one or multiple statistical learning algorithms (penalized regression).
+This is intended for survival data, and the mehods can handle left truncated survival data with binary predictors
+(mutation data).
+The inputed data should be a data frame with columns representing the variables of interest while the rows should correspond to patients.
+All methods selected will all return a list of length equal to the number of crossvalidation performed,
+including the predicted risk score at each cross validation for all the patients falling in the test set.
 }
 \examples{
 library(OncoCast)
 test <- OncoCast(data=survData,formula=Surv(time,status)~.,
                           method=c("LASSO"),
-                          runs = 5,cores = 1,sampling = "cv",
+                          runs = 25,cores = 1,sampling = "cv",
                           pathResults = "./Test/",studyType = "ExampleRun",save=F)
 }
 \keyword{Selection,}
-\keyword{cross-validation}
 \keyword{penalized}
-\keyword{regression,}
+\keyword{regression}

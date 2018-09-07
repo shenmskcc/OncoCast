@@ -2,41 +2,17 @@
 ##################### FULL VARIABLE SELECTION ANALYSIS FOR IMPACT GENETIC DATA ###########################
 ##########################################################################################################
 
-##########################################################################################################
-##################### DATA :
-### This function takes as input data a processed data frame containing :
-# 1) IMPACT mutation data in binary form (mutated = 1, non-mutated = 0)
-# 2) Survival Times and outcome status
-# 3) No missing data is allowed (maybe allow for imputation later)
-
-##################### ARGUMENTS :
-# 1) data (specified in the way above)
-# 2) A survival formula (eg : Surv(time,status)~. or Surv(time1,time2,status)~.)
-# 3) Variable selection method to be used possible are : "LASSO","RF","GBM" --> default all
-# 4) In the case where "RF or "GBM" are chosen can specify :
-# i) number of trees --> default 1000
-# ii) nsplits ("RF" only) --> default 10
-# 5) Number of runs to be performed (number of splits) --> default 100
-# 6) Where to save the results directory --> default working directory
-# 7) Name of the output (begining) --> default none
-# 8) number of cores to be used "cores" --> default 1
-# 9) bootControl number of CV for the GBM parameters --> default 50
-
-#################### NOTES :
-# 1) In the case where interaction depth of shrinkage is in fact a vector
-# Cross validation will be automatically performed with 50 folds
-
-
 #' OncoCast
 #'
-#' This functions let's the user select one or multiple machine learning algorithms. This is intended for survival data, and
-#' the mehods can handle left truncated survival data. The inputted data should be a data frame with columns representing the
-#' variables of interest while the rows should correspond to patients.
-#' The output will vary depending on the methods. However they will all return a list of length equal to the number of
-#' crossvalidation performed, including the predicted risk score at each cross validation for all the patients falling in the
-#' test set.
-#' @param data name of the data frame with variables as columns and patients as rows. Must have no missing data and should contain only the outcome and the predictors to be used.
-#' @param formula a survival formula with the names of the variables to be used in the data frame provided in the first argument.
+#' This functions let's the user select one or multiple statistical learning algorithms (penalized regression).
+#' This is intended for survival data, and the mehods can handle left truncated survival data with binary predictors
+#' (mutation data).
+#' The inputed data should be a data frame with columns representing the variables of interest while the rows should correspond to patients.
+#' All methods selected will all return a list of length equal to the number of crossvalidation performed,
+#' including the predicted risk score at each cross validation for all the patients falling in the test set.
+#' @param data Data frame with variables as columns and patients as rows. Must have no missing data and should contain only the outcome and the predictors to be used.
+#' We recommend the time variables to use the month unit.
+#' @param formula A survival formula with the names of the variables to be used in the data frame provided in the first argument.
 #'  eg : Surv(time,status)~. or Surv(time1,time2,status)~. (Note all the variable available will be used regardless of the right
 #'  side of the formula).
 #' @param method Character vector of the names of the method(s) to be used, options are : 1) LASSO ("LASSO") 2) Ridge ("RIDGE")
@@ -44,26 +20,26 @@
 #' @param runs Number of cross validation iterations to be performed. Default is 100.
 #' @param sampling The method use for sampling, options are bootstrapping ("boot") and cross-validation ("cv").
 #' Default is cross-validation.
-#' @param penalizeCol Name of variables you do not with to penalize. Default is NULL. Names must be unique and exact matches.
 #' @param cores If you wish to run this function in parallel set the number of cores to be used to be greater than 1. Default is 1.
 #' CAUTION : Overloading your computer can lead to serious issues, please check how many cores are available on your machine
-#' before selecting an option! (Use detectCores())
-#' @param pathResults String of the path to the user wishes to output the results. Default is current directory.
-#' @param studyType String that will be the prefix to the name of the outputed results. All results saved will start that string.
-#' Default is empty.
+#' before selecting an option!
+#' @param pathResults String of where the users wishes to output the results. Default is current directory.
+#' @param studyType String that will be the prefix to the name of the outputed results. Default is empty.
 #' @param save Boolean value : Default is TRUE, the results will be saved with the specified name in the specified path. If FALSE the results
 #' will be returned directly from the function and won't be saved.
 #' @return CI : For each iteration the concordance index of the generated model will be calculated on the testing set
-#' @return predicted : The predicted risk for all the patients in the testing set
 #' @return fit : For LASSO, RIDGE and ENET methods return the refitted cox proportional hazard model with the beta coefficients found
 #' in the penalized regression model.
-#' @return data : the data used to fit the model (saved only in the first iteration results).
-#' @keywords Selection, penalized regression, cross-validation
+#' @return predicted : The predicted risk for all the patients in the testing set.
+#' @return means : The mean value of the predictors that were not shrunken to zero in the penalized regression method.
+#' @return method : The name of the method that was used to generate the output.
+#' @return data : The data used to fit the model (available only in the first element of the list).
+#' @keywords Selection, penalized regression
 #' @export
 #' @examples library(OncoCast)
 #' test <- OncoCast(data=survData,formula=Surv(time,status)~.,
 #'                           method=c("LASSO"),
-#'                           runs = 5,cores = 1,sampling = "cv",
+#'                           runs = 25,cores = 1,sampling = "cv",
 #'                           pathResults = "./Test/",studyType = "ExampleRun",save=F)
 #' @import survival
 #' @import penalized
@@ -74,7 +50,7 @@
 
 
 OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
-                     runs = 100,penalizeCol = NULL,
+                     runs = 100,
                      sampling = "cv",
                      cores = 1,
                      pathResults = "",studyType = "",save = T){
@@ -88,6 +64,7 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
     stop("ERROR : Missing data is not allowed at this time, please remove or impute missing data.")
   }
 
+  # check arguments
   if( anyNA(match(method,c("LASSO","ENET","RIDGE"))) ){stop("ERROR : The method you have selected is not available.")}
 
   if(!(sampling %in% c("cv","boot"))){
@@ -96,8 +73,14 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
 
 
   ### Prepare cores
-  cl <- makeCluster(cores) #not to overload your computer
+  cl <- makeCluster(cores)
   registerDoParallel(cl)
+
+  ##### generate empty output objects #####
+  LASSO <- NULL
+  ENET <- NULL
+  RIDGE <- NULL
+
 
   # appropriate formula
   survFormula <- as.formula(formula)
@@ -119,14 +102,7 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
 
   print("Data check performed, ready for analysis.")
 
-  ##### SURVIVAL (INCLUDING LEFT TRUNCATION) #####
-  LASSO <- NULL
-  ENET <- NULL
-  RIDGE <- NULL
-
-
   ########## LASSO #############
-  # returns and saves the CI and the refitted model
   final.lasso <- list()
   if("LASSO" %in% method) {
     print("LASSO SELECTED")
@@ -134,9 +110,7 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
 
       #load into for each
       library(survival)
-      #library(plyr, lib.loc="/usr/local/lib/R/site-library/")
-      try(library(penalized, lib.loc="/usr/local/lib/R/site-library/"),silent = TRUE)
-      try(library(penalized),silent = TRUE)
+      library(penalized)
       library(foreach)
       library(doParallel)
       library(stats)
@@ -156,38 +130,17 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
         test <- data[-rm.samples,]
       }
 
-
       # make new survival objects
       if(LT) {
         trainSurv <- with(train,Surv(time1,time2,status))
         testSurv <- with(test,Surv(time1,time2,status))
-        if(is.null(penalizeCol)){
-          opt <- try(optL1(trainSurv,data = train,penalized = train[,4:ncol(train)],
-                           unpenalized = ~0,fold = 5,trace=FALSE))
-        }
-
-        else{
-          noPen.index <- match(penalizeCol,colnames(train))
-          noPen.index.pen <-c(1:3,noPen.index)
-          opt <- try(optL1(trainSurv,data = train,penalized = train[,-noPen.index.pen],
-                           unpenalized = train[,noPen.index],fold = 5,trace=FALSE))}
+        opt <- try(optL1(trainSurv,data = train,penalized = train[,4:ncol(train)],fold = 5,trace=FALSE))
       }
 
       else {
         trainSurv <- with(train,Surv(time,status))
         testSurv <- with(test,Surv(time,status))
-
-        if(is.null(penalizeCol)){
-          opt <- try(optL1(trainSurv,data = train,penalized = train[,3:ncol(train)],
-                           unpenalized = ~0,fold = 5,trace=FALSE))}
-
-        else{
-          noPen.index <- match(penalizeCol,colnames(train))
-          noPen.index.pen <-c(1,2,noPen.index)
-          opt <- try(optL1(trainSurv,data = train,penalized = train[,-noPen.index.pen],
-                           unpenalized = train[,noPen.index],fold = 5,trace=FALSE))
-        }
-
+        opt <- try(optL1(trainSurv,data = train,penalized = train[,3:ncol(train)],fold = 5,trace=FALSE))
       }
 
 
@@ -208,10 +161,19 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
             0.368*as.numeric(survConcordance(trainSurv ~predict(lasso.fit, newdata=train),
                                              train)$concordance)}
 
+        predicted <- rep(NA,nrow(data))
+        names(predicted) <- rownames(data)
+        predicted[match(names(predict(lasso.fit, newdata=test)),names(predicted))] <- as.numeric(predict(lasso.fit, newdata=test))
+
+        if(LT) {coefs <- rep(NA,ncol(data)-3); names(coefs) <- colnames(data)[4:ncol(data)]}
+        if(!LT) {coefs <- rep(NA,ncol(data)-2); names(coefs) <- colnames(data)[3:ncol(data)]}
+        coefs[match(coefs.left,names(coefs))] <- summary(lasso.fit)$coefficients
+
         final.lasso$CI <- CI
-        final.lasso$fit <- summary(lasso.fit)$coefficients
-        final.lasso$predicted <- predict(lasso.fit, newdata=test)
+        final.lasso$fit <- coefs
+        final.lasso$predicted <- predicted
         final.lasso$data <- NULL
+        final.lasso$means <- lasso.fit$means
         if(run == 1){
           final.lasso$method <- "LASSO"
           final.lasso$data <- data
@@ -241,9 +203,7 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
 
       #load into for each
       library(survival)
-      #library(plyr, lib.loc="/usr/local/lib/R/site-library/")
-      try(library(penalized, lib.loc="/usr/local/lib/R/site-library/"),silent = TRUE)
-      try(library(penalized),silent = TRUE)
+      library(penalized)
       library(foreach)
       library(doParallel)
       library(stats)
@@ -296,13 +256,23 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
                                                  test)$concordance) +
             0.368*as.numeric(survConcordance(trainSurv ~predict(ridge.fit, newdata=train),
                                              train)$concordance)}
+
+        predicted <- rep(NA,nrow(data))
+        names(predicted) <- rownames(data)
+        predicted[match(names(predict(ridge.fit, newdata=test)),names(predicted))] <- as.numeric(predict(ridge.fit, newdata=test))
+
+        if(LT) {coefs <- rep(NA,ncol(data)-3); names(coefs) <- colnames(data)[4:ncol(data)]}
+        if(!LT) {coefs <- rep(NA,ncol(data)-2); names(coefs) <- colnames(data)[3:ncol(data)]}
+        coefs[match(coefs.left,names(coefs))] <- summary(ridge.fit)$coefficients
+
         final.ridge$CI <- CI
-        final.ridge$fit <- summary(ridge.fit)$coefficients
-        final.ridge$predicted <- predict(ridge.fit, newdata=test)
+        final.ridge$fit <- coefs
+        final.ridge$predicted <- predicted
+        final.ridge$means <- ridge.fit$means
         if(run == 1){
           final.ridge$method <- "RIDGE"
           final.ridge$data <- data}
-        }
+      }
       else{
         if(run == 1){
           final.ridge$method <- "RIDGE"
@@ -324,8 +294,7 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
     print("ENET SELECTED")
     ENET <- foreach(run=1:runs) %dopar% {
       library(survival)
-      try(library(penalized, lib.loc="/usr/local/lib/R/site-library/"),silent = TRUE)
-      try(library(penalized),silent = TRUE)
+      library(penalized)
       library(foreach)
       library(doParallel)
       library(stats)
@@ -354,11 +323,11 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
       }
 
       opt.alpha <- try(optL2(trainSurv,data = train,penalized = train[,4:ncol(train)],
-                         unpenalized = ~0,fold=5,model = "cox",trace = FALSE),silent=T)
+                             unpenalized = ~0,fold=5,model = "cox",trace = FALSE),silent=T)
       alpha.final <- try(opt.alpha$lambda/8,silent=T)
       #alpha.final <- 0.01
       opt <- try(optL1(trainSurv,data = train,penalized = train[,4:ncol(train)],
-                   unpenalized = ~0,fold=5,lambda2 = alpha.final,model = "cox",trace = FALSE),silent=T)
+                       unpenalized = ~0,fold=5,lambda2 = alpha.final,model = "cox",trace = FALSE),silent=T)
 
       if(typeof(opt) == "list" && length(coefficients(opt$fullfit)) != 0){
         optimal.coefs <- coefficients(opt$fullfit)
@@ -377,22 +346,20 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
             0.368*as.numeric(survConcordance(trainSurv ~predict(lasso.fit, newdata=train),
                                              train)$concordance)}
 
+        predicted <- rep(NA,nrow(data))
+        names(predicted) <- rownames(data)
+        predicted[match(names(predict(lasso.fit, newdata=test)),names(predicted))] <- as.numeric(predict(lasso.fit, newdata=test))
+
+        if(LT) {coefs <- rep(NA,ncol(data)-3); names(coefs) <- colnames(data)[4:ncol(data)]}
+        if(!LT) {coefs <- rep(NA,ncol(data)-2); names(coefs) <- colnames(data)[3:ncol(data)]}
+        coefs[match(coefs.left,names(coefs))] <- summary(lasso.fit)$coefficients
 
         final.enet$CI <- CI
-        final.enet$fit <- summary(lasso.fit)$coefficients
-        final.enet$predicted <- predict(lasso.fit, newdata=test)
+        final.enet$fit <- coefs
+        final.enet$predicted <- predicted
         final.enet$data <- NULL
         final.enet$alphas <- alpha.final
-
-        # final.enet$CI <- CI
-        # final.enet$fit <- summary(lasso.fit)$coefficients
-        # final.enet$predicted <- predict(lasso.fit, newdata=test)
-        # #final.enet$risk.full <- predict(lasso.fit, newdata=data)
-        # final.enet$means <- lasso.fit$means
-        # #final.enet$train.subject <-
-        # #final.enet$enet.fit <- lasso.fit
-        # final.enet$alphas <- alpha.final
-        # final.enet$data <- NULL
+        final.enet$means <- lasso.fit$means
         if(run == 1){
           final.enet$method <- "ENET"
           final.enet$data <- data
@@ -411,7 +378,6 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
       ENET <- NULL}
   }
 
-
   ################
 
   stopCluster(cl)
@@ -424,3 +390,20 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
   else{return(0)}
 
 }
+
+# Out <- OncoCast(data=survData,formula = Surv(time,status)~.,sampling="cv",
+#                 cores=2,runs=50,method=c("LASSO"),save=F)
+# out <- outputSummary(Out$LASSO)
+# riskout <- riskStrat(survData,out$average.risk,numGroups = 2,cuts=0.5)
+#
+# data <- riskout$data.out
+# topHits <- out$topHits
+# mut.results <- mutSummary(data,topHits,numGroups = 2,geneList=NULL)
+#
+# in.data <- as.data.frame(matrix(rbinom(5*20,1,0.5),nrow=20,ncol = 5))
+# colnames(in.data) <- c("ImpCov1","ImpCov2","ImpCov3","ImpCov4","Cov7")
+# rownames(in.data) <- paste0("Incoming",1:20)
+# Incoming <- predictIncoming(Out$LASSO,in.data,surv.print = c(5,10,15),riskRefit = out$RiskRefit)
+#
+# lasso.results <- getResults_OC(Out$LASSO,numGroups=4,cuts = c(0.25,0.5,0.75),mut.data = T)
+
