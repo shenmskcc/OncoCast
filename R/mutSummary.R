@@ -359,5 +359,5 @@ mutSummary <- function(data,average.risk,topHits,numGroups,geneList){
 
   useGenes <- paste0(useGenes,collapse = ",")
   return(list("mut_Plot" = mut_2LVLS,"PieChart"=pie.chart,
-              "GenesUsed"=useGenes,"MutProfiles"=eval(profiles$call)))
+              "GenesUsed"=useGenes,"MutProfiles"=profiles))
 }
