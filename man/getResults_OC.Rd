@@ -4,11 +4,13 @@
 \alias{getResults_OC}
 \title{getResults_OC}
 \usage{
-getResults_OC(OC_object, numGroups = 2, cuts = 0.5, geneList = NULL,
+getResults_OC(OC_object, data, numGroups = 2, cuts = 0.5, geneList = NULL,
   mut.data = F)
 }
 \arguments{
 \item{OC_object}{A list object outputed by the OncoCast function.}
+
+\item{data}{A dataframe that corresponds to the data used to generate the OncoCast output.}
 
 \item{numGroups}{The number of groups to be made when stratifying by risk groups. Options are 2,3 and 4 (for now implementing
 broader version). Default is 2.}

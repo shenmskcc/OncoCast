@@ -4,6 +4,7 @@
 #' one of the (or the one) objects returned from the different machine learning algorithms chosen previously.
 #' Only one such object can be inputted at a time in the getResults_OC function.
 #' @param OC_object A list object outputed by the OncoCast function.
+#' @param data A dataframe that corresponds to the data used to generate the OncoCast output.
 #' @param numGroups The number of groups to be made when stratifying by risk groups. Options are 2,3 and 4 (for now implementing
 #' broader version). Default is 2.
 #' @param cuts Numeric vector of the points in the distribution of risk scores where groups will be splitted. Needs to be of length
@@ -47,19 +48,15 @@
 #' @import scales
 #' @import survminer
 #' @import data.table
+#' @import gplots
 
 
-getResults_OC <- function(OC_object,numGroups=2,cuts=0.5,geneList=NULL,mut.data=F){
+getResults_OC <- function(OC_object,data,numGroups=2,cuts=0.5,geneList=NULL,mut.data=F){
 
 
   ############## CHECKS
   if(!(numGroups %in% 2:4)) {stop("ERROR : You must use a number of groups between 2 and 4. We are working on implementing a broader version")}
   if(max(cuts) >= 1 || min(cuts) <= 0){stop("ERROR : You must select cuts that are between 0 and 1 (Not included).")}
-  # method <- OC_object[[1]]$method
-  # m=1
-  # while(method){method <- OC_object[[m]]$method,m = m+1}
-  if(!(OC_object[[1]]$method %in% c("LASSO","RIDGE","ENET"))){"ERROR : The inputted object is NOT an output
-    of the VariableSelection function."}
 
   library(plotly)
   library(reshape2)
@@ -69,28 +66,21 @@ getResults_OC <- function(OC_object,numGroups=2,cuts=0.5,geneList=NULL,mut.data=
   library(data.table)
   library(survival)
   library(plyr)
+  library(gplots)
 
-  data <- OC_object[[1]]$data
+  OC_object <- Filter(Negate(is.null), OC_object)
 
   ## determine if left truncated
   if(length(grep("time",colnames(data)))  == 1) {LT = FALSE}
   if(length(grep("time",colnames(data)))  == 2) {LT = TRUE}
 
   MD <- 12
-  # if( LT && max(data$time2) > 1000){MD = 365
-  # time.type = "Days"}
-  # if( LT && max(data$time2) < 1000){MD = 12
-  # time.type = "Months"}
-  # if( !LT && max(data$time) > 1000){MD = 365
-  # time.type = "Days"}
-  # if( !LT && max(data$time) < 1000){MD = 12
-  # time.type = "Months"}
 
   #################################################################
   ### get all the basic results from the output of the pipeline ###
   #################################################################
 
-  basic.results <- outputSummary(OC_object)
+  basic.results <- outputSummary(OC_object,data)
 
   average.risk <- basic.results$average.risk
   #####################################
@@ -105,16 +95,18 @@ getResults_OC <- function(OC_object,numGroups=2,cuts=0.5,geneList=NULL,mut.data=
   ####### MUTATION DISTRIBUTION ########
   ######################################
   if(mut.data){
-    mut.results <- mutSummary(data,topHits,numGroups,geneList)
+    mut.results <- mutSummary(data,average.risk,topHits,numGroups,geneList)
     pie.chart <- mut.results$PieChart
     mut_2LVLS <- mut.results$mut_Plot
     useGenes <- mut.results$GenesUsed
+    MutProfiles <- mut.results$MutProfiles
   }
   #####################################
   else{
     pie.chart <- NULL
     mut_2LVLS <- NULL
     useGenes <- NULL
+    MutProfiles <- NULL
   }
 
   return(list("ciSummary" = basic.results$ciSummary,"inflPlot" = basic.results$inflPlot,
@@ -124,7 +116,8 @@ getResults_OC <- function(OC_object,numGroups=2,cuts=0.5,geneList=NULL,mut.data=
               "RiskHistogram"=basic.results$RiskHistogram,"Fits"=basic.results$Fits,"time.type"=basic.results$time.type,
               "RiskScoreSummary"=basic.results$RiskScoreSummary,
               "KM_Plot" = strat.results$KM_Plot,"SurvSum" = strat.results$SurvSum,
-              "mut_Plot" = mut_2LVLS,"PieChart"=pie.chart,"GenesUsed"=useGenes))
+              "mut_Plot" = mut_2LVLS,"PieChart"=pie.chart,"GenesUsed"=useGenes,
+              "MutProfiles"=MutProfiles))
 
 }
 

@@ -4,7 +4,7 @@
 \alias{mutSummary}
 \title{mutSummary}
 \usage{
-mutSummary(data, topHits, numGroups, geneList)
+mutSummary(data, average.risk, topHits, numGroups, geneList)
 }
 \arguments{
 \item{data}{The data used for the upstream analysis with an extract column indicating the risk group of each patients.

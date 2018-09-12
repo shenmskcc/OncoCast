@@ -4,6 +4,7 @@
 #' one of the (or the one) objects returned from the different machine learning algorithms chosen previously.
 #' Only one such object can be inputted everytime in the outputSummary function.
 #' @param OC_object A list object outputed by the VariableSelection function.
+#' @param data A dataframe that corresponds to the data used to generate the OncoCast output.
 #' @return ciSummary Summary of the distribution of the concordance index accross all runs.
 #' @return inflPlot Bar plot of frequency of the 20 most selected features.
 #' @return topHits Character vector of the top 10 most selected features.
@@ -33,7 +34,7 @@
 #' @import reshape2
 #' @import scales
 
-outputSummary <- function(OC_object){
+outputSummary <- function(OC_object,data){
 
   library(plotly)
   library(reshape2)
@@ -44,7 +45,8 @@ outputSummary <- function(OC_object){
   library(survival)
   library(plyr)
 
-  data <- OC_object[[1]]$data
+  OC_object <- Filter(Negate(is.null), OC_object)
+
   ## determine if left truncated
   if(length(grep("time",colnames(data)))  == 1) {LT = FALSE}
   if(length(grep("time",colnames(data)))  == 2) {LT = TRUE}
@@ -62,7 +64,7 @@ outputSummary <- function(OC_object){
 
   selected.genes.lasso <- apply(allCoefs,2,function(x){sum(x!=0)})
 
-  topHits <- names(sort(selected.genes.lasso,decreasing = TRUE))[1:10]
+  #topHits <- names(sort(selected.genes.lasso[selected.genes.lasso >0.5],decreasing = TRUE))
   if(length(selected.genes.lasso)  >= 20){ranked.lasso <- sort(selected.genes.lasso,decreasing = TRUE)[1:20]}
   if(length(selected.genes.lasso)  < 20){ranked.lasso <- sort(selected.genes.lasso,decreasing = TRUE)[1:length(selected.genes.lasso)]}
   melt.rank.lasso <- melt(ranked.lasso)
@@ -83,6 +85,7 @@ outputSummary <- function(OC_object){
     length(which(x!=0))/length(x)
   })
 
+  topHits <- names(selectFreq[selectFreq > 0.5])
   ## get mu freq
   if(LT) data.temp <- data[,-c(1:3)]
   if(!LT) data.temp <- data[,-c(1:2)]

@@ -4,10 +4,12 @@
 \alias{outputSummary}
 \title{outputSummary}
 \usage{
-outputSummary(OC_object)
+outputSummary(OC_object, data)
 }
 \arguments{
 \item{OC_object}{A list object outputed by the VariableSelection function.}
+
+\item{data}{A dataframe that corresponds to the data used to generate the OncoCast output.}
 }
 \value{
 ciSummary Summary of the distribution of the concordance index accross all runs.

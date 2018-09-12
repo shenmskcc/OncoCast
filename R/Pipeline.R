@@ -20,6 +20,7 @@
 #' @param runs Number of cross validation iterations to be performed. Default is 100.
 #' @param sampling The method use for sampling, options are bootstrapping ("boot") and cross-validation ("cv").
 #' Default is cross-validation.
+#' @param nonPenCol Name of variables you do not with to penalize (available only for LASSO, RIDGE and ENET methods). Default is NULL.
 #' @param cores If you wish to run this function in parallel set the number of cores to be used to be greater than 1. Default is 1.
 #' CAUTION : Overloading your computer can lead to serious issues, please check how many cores are available on your machine
 #' before selecting an option!
@@ -53,6 +54,7 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
                      runs = 100,
                      sampling = "cv",
                      cores = 1,
+                     nonPenCol = NULL,
                      pathResults = "",studyType = "",save = T){
 
   # load libraries
@@ -134,13 +136,27 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
       if(LT) {
         trainSurv <- with(train,Surv(time1,time2,status))
         testSurv <- with(test,Surv(time1,time2,status))
-        opt <- try(optL1(trainSurv,data = train,penalized = train[,4:ncol(train)],fold = 5,trace=FALSE))
+        if(is.null(nonPenCol)){
+        opt <- try(optL1(trainSurv,data = train,penalized = train[,4:ncol(train)],fold = 5,trace=FALSE))}
+        else{
+          noPen.index <- match(nonPenCol,colnames(train))
+          noPen.index.pen <-c(1:3,noPen.index)
+          opt <- try(optL1(trainSurv,data = train,penalized = train[,-noPen.index.pen],
+                           unpenalized = train[,nonPenCol],fold = 5,trace=FALSE))
+        }
       }
 
       else {
         trainSurv <- with(train,Surv(time,status))
         testSurv <- with(test,Surv(time,status))
-        opt <- try(optL1(trainSurv,data = train,penalized = train[,3:ncol(train)],fold = 5,trace=FALSE))
+        if(is.null(nonPenCol)){
+        opt <- try(optL1(trainSurv,data = train,penalized = as.matrix(train[,3:ncol(train)]),fold = 5,trace=FALSE))}
+        else{
+          noPen.index <- match(nonPenCol,colnames(train))
+          noPen.index.pen <-c(1,2,noPen.index)
+          opt <- try(optL1(trainSurv,data = train,penalized = train[,-noPen.index.pen],
+                           unpenalized = train[,nonPenCol],fold = 5,trace=FALSE))
+        }
       }
 
 
@@ -174,16 +190,9 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
         final.lasso$predicted <- predicted
         final.lasso$data <- NULL
         final.lasso$means <- lasso.fit$means
-        if(run == 1){
-          final.lasso$method <- "LASSO"
-          final.lasso$data <- data
-        }
       }
       else{
-        if(run == 1){
-          final.lasso$method <- "LASSO"
-          final.lasso$data <- data
-        }
+        final.lasso <- NULL
       }
       return(final.lasso)
     }
@@ -192,7 +201,6 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
       save(LASSO,file = paste0(pathResults,studyType,"_",sampling,"_LASSO.Rdata"))
       LASSO <- NULL}
   }
-
 
   ##### RIDGE #####
 
@@ -228,13 +236,27 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
       if(LT) {
         trainSurv <- with(train,Surv(time1,time2,status))
         testSurv <- with(test,Surv(time1,time2,status))
-        opt <- try(optL2(trainSurv,data = train,penalized = train[,4:ncol(train)],fold = 5,trace=FALSE))
+        if(is.null(nonPenCol)){
+          opt <- try(optL1(trainSurv,data = train,penalized = train[,4:ncol(train)],fold = 5,trace=FALSE))}
+        else{
+          noPen.index <- match(nonPenCol,colnames(train))
+          noPen.index.pen <-c(1:3,noPen.index)
+          opt <- try(optL1(trainSurv,data = train,penalized = train[,-noPen.index.pen],
+                           unpenalized = train[,nonPenCol],fold = 5,trace=FALSE))
+        }
       }
 
       else {
         trainSurv <- with(train,Surv(time,status))
         testSurv <- with(test,Surv(time,status))
-        opt <- try(optL2(trainSurv,data = train,penalized = train[,3:ncol(train)],fold = 5,trace=FALSE))
+        if(is.null(nonPenCol)){
+          opt <- try(optL1(trainSurv,data = train,penalized = train[,3:ncol(train)],fold = 5,trace=FALSE))}
+        else{
+          noPen.index <- match(nonPenCol,colnames(train))
+          noPen.index.pen <-c(1,2,noPen.index)
+          opt <- try(optL1(trainSurv,data = train,penalized = train[,-noPen.index.pen],
+                           unpenalized = train[,nonPenCol],fold = 5,trace=FALSE))
+        }
       }
 
       if(typeof(opt) == "list" && length(coefficients(opt$fullfit)) != 0){
@@ -274,13 +296,9 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
           final.ridge$data <- data}
       }
       else{
-        if(run == 1){
-          final.ridge$method <- "RIDGE"
-          final.ridge$data <- data
-        }
-        return(final.ridge)
+        final.ridge <- NULL
       }
-
+      return(final.ridge)
     }
     if(save){
       save(RIDGE,file = paste0(pathResults,studyType,"_",sampling,"_RIDGE.Rdata"))
@@ -314,20 +332,46 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
         test <- data[-unique(rm.samples),]
       }
 
-      if(LT){
+      if(LT) {
         trainSurv <- with(train,Surv(time1,time2,status))
-        testSurv <- with(test,Surv(time1,time2,status))}
-      if(!LT){
-        trainSurv <- with(train,Surv(time,status))
-        testSurv <- with(test,Surv(time,status))
+        testSurv <- with(test,Surv(time1,time2,status))
+        if(is.null(nonPenCol)){
+          opt.alpha <- try(optL2(trainSurv,data = train,penalized = train[,4:ncol(train)],
+                                 unpenalized = ~0,fold=5,model = "cox",trace = FALSE),silent=T)
+          alpha.final <- try(opt.alpha$lambda/8,silent=T)
+          opt <- try(optL1(trainSurv,data = train,penalized = train[,4:ncol(train)],
+                           unpenalized = ~0,fold=5,lambda2 = alpha.final,model = "cox",trace = FALSE),silent=T)}
+        else{
+          noPen.index <- match(nonPenCol,colnames(train))
+          noPen.index.pen <-c(1:3,noPen.index)
+          opt.alpha <- try(optL2(trainSurv,data = train,penalized = train[,-noPen.index.pen],
+                                 unpenalized = train[,nonPenCol],fold=5,model = "cox",trace = FALSE),silent=T)
+          alpha.final <- try(opt.alpha$lambda/8,silent=T)
+          opt <- try(optL1(trainSurv,data = train,penalized = train[,-noPen.index.pen],
+                           unpenalized = train[,nonPenCol],fold = 5,lambda2 = alpha.final,trace=FALSE),silent=T)
+        }
       }
 
-      opt.alpha <- try(optL2(trainSurv,data = train,penalized = train[,4:ncol(train)],
-                             unpenalized = ~0,fold=5,model = "cox",trace = FALSE),silent=T)
-      alpha.final <- try(opt.alpha$lambda/8,silent=T)
-      #alpha.final <- 0.01
-      opt <- try(optL1(trainSurv,data = train,penalized = train[,4:ncol(train)],
-                       unpenalized = ~0,fold=5,lambda2 = alpha.final,model = "cox",trace = FALSE),silent=T)
+      else {
+        trainSurv <- with(train,Surv(time,status))
+        testSurv <- with(test,Surv(time,status))
+        if(is.null(nonPenCol)){
+          opt.alpha <- try(optL2(trainSurv,data = train,penalized = train[,3:ncol(train)],
+                                 unpenalized = ~0,fold=5,model = "cox",trace = FALSE),silent=T)
+          alpha.final <- try(opt.alpha$lambda/8,silent=T)
+          opt <- try(optL1(trainSurv,data = train,penalized = train[,3:ncol(train)],
+                           unpenalized = ~0,fold=5,lambda2 = alpha.final,model = "cox",trace = FALSE),silent=T)}
+        else{
+          noPen.index <- match(nonPenCol,colnames(train))
+          noPen.index.pen <-c(1:2,noPen.index)
+          opt.alpha <- try(optL2(trainSurv,data = train,penalized = train[,-noPen.index.pen],
+                                 unpenalized = train[,nonPenCol],fold=5,model = "cox",trace = FALSE),silent=T)
+          alpha.final <- try(opt.alpha$lambda/8,silent=T)
+          opt <- try(optL1(trainSurv,data = train,penalized = train[,-noPen.index.pen],
+                           unpenalized = train[,nonPenCol],fold = 5,lambda2 = alpha.final,trace=FALSE),silent=T)
+        }
+      }
+
 
       if(typeof(opt) == "list" && length(coefficients(opt$fullfit)) != 0){
         optimal.coefs <- coefficients(opt$fullfit)
@@ -360,16 +404,9 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
         final.enet$data <- NULL
         final.enet$alphas <- alpha.final
         final.enet$means <- lasso.fit$means
-        if(run == 1){
-          final.enet$method <- "ENET"
-          final.enet$data <- data
-        }
       }
       else{
-        if(run == 1){
-          final.enet$method <- "ENET"
-          final.enet$data <- data
-        }
+        final.enet <- NULL
       }
       return(final.enet)
     }
@@ -386,14 +423,99 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
   if(!is.null(RIDGE)){OUTPUT$RIDGE <- RIDGE}
   if(!is.null(ENET)){OUTPUT$ENET <- ENET}
 
-  if(!is.null(OUTPUT)){return(OUTPUT)}
+  if(!is.null(OUTPUT)){
+    #OUTPUT$data <- data
+    return(OUTPUT)}
   else{return(0)}
 
 }
 
+# rm(list=ls())
+# setwd("~/RonglaiAndy/EarlyStageNSCLC/data/")
+# data <- read.csv("EarlyStageMut.csv",row.names = 1)
+# genes <- colnames(data)[-c(1:2)]
+# genes.rm <- names(which(apply(data[,genes],2,sum)<=4))
+# data <- read.csv("MutClin.csv",row.names = 1)
+# data <- data[,-match(genes.rm,colnames(data))]
+#
+# library(OncoCast)
+# test <- OncoCast(data,formula = Surv(time,status)~.,method = c("LASSO"),
+#                  runs = 20,cores = 1,
+#                  pathResults = "../results/",
+#                  studyType = "EarlyStage_WithClin",save=F)
+
+# rm(list=ls())
+# setwd("~/RonglaiAndy/EarlyStageNSCLC/results/")
+# load("EarlyStage_cv_LASSO.Rdata")
+# data <- read.csv("../data/EarlyStageMut.csv",row.names = 1)
+# library(OncoCast)
+# clin <- read.csv("../data/ClinData.csv",header = T)
+# status <- clin$Post.op.Recur.
+# time <- clin$Time.to.First.Post.op.Recur
+# time[is.na(time)] <- clin$Follow.up..mo...from.DOS.[is.na(time)]
+# surv <- as.data.frame(cbind(time,status))
+# rownames(surv) <- clin$IMPACT.Sample.ID
+# results <- getResults_OC(LASSO,data,numGroups = 2,cuts = 0.66,geneList = NULL,mut.data = T)
+
+# rm(list=ls())
+# setwd("~/RonglaiAndy/EarlyStageNSCLC/data/")
+# data <- read.csv("MutClin.csv",row.names = 1)
+# data <- data[,which(apply(data,2,sum)>4)]
+#
+#
+# library(OncoCast)
+# temp <- OncoCast(data,formula = Surv(time,status)~.,method = c("LASSO"),
+#          runs = 25,cores = 8,
+#          nonPenCol = c("SUV","ApproachOpen","HistologySolid",
+#                        "HistologyMicro","HistologyAcinar","HistologyLepidic",
+#                        "HistologyPapillary","StageII","StageIII","VPI","LVI"),
+#          pathResults = "../results/",
+#          studyType = "EarlyStage_WithClin",save=F)
+#
+# temp$LASSO[[2]]
+# lasso.results.clin <- getResults_OC(temp$ENET,data,numGroups = 2,cuts=0.5,mut.data = T)
+# lasso.results.clin$ciSummary
+# lasso.results.clin$selectInflPlot
+# lasso.results.clin$RiskHistogram
+# lasso.results.clin$SurvSum
+# lasso.results.clin$mut_Plot
+
+
+
+# library(OncoCast)
+# temp <- OncoCast(data,formula = Surv(time,status)~.,method = c("LASSO"),
+#          runs = 10,cores = 8,
+#          nonPenCol = c("SUV","ApproachOpen","HistologySolid",
+#                        "HistologyMicro","HistologyAcinar","HistologyLepidic"),
+#                       # "HistologyPapillary","StageII","StageIII","VPI","LVI"),
+#          pathResults = "../results/",
+#          studyType = "EarlyStage_WithClinNoPen",save=F)
+# temp[[1]][[2]]
+
+
+# library(OncoCast)
 # Out <- OncoCast(data=survData,formula = Surv(time,status)~.,sampling="cv",
-#                 cores=2,runs=50,method=c("LASSO"),save=F)
-# out <- outputSummary(Out$LASSO)
+#                 nonPenCol = c("Cov7","Cov10"),
+#                 cores=2,runs=25,method=c("ENET"),save=F)
+# lasso.results <- getResults_OC(Out$ENET,data=survData,numGroups=4,cuts = c(0.25,0.5,0.75),mut.data = T)
+#
+# lasso.results$MutProfiles
+# revRowInd <- match(c(1:length(lasso.results$MutProfiles$rowInd)), lasso.results$MutProfiles$rowInd)
+# revColInd <- match(c(1:length(lasso.results$MutProfiles$colInd)), lasso.results$MutProfiles$colInd)
+# cols <- colorpanel(nrow(lasso.results$MutProfiles$carpet), low="green", high="red")
+#
+# heatmap.2(t(lasso.results$MutProfiles$carpet)[revRowInd, revColInd],
+#           dendrogram="none",  Rowv=NA, Colv=NA,
+#           trace="none", labCol = "",
+#           ColSideColors=cols,
+#           key=FALSE, margins = c(0,7),
+#           col=colorpanel(2, low="white", high="black"),
+#           lwid=c(0.1,4), lhei=c(0.1,4))
+
+
+#out <- outputSummary(Out$LASSO)
+#out <- outputSummary(Out$ENET)
+# out <- outputSummary(Out$ENET)
 # riskout <- riskStrat(survData,out$average.risk,numGroups = 2,cuts=0.5)
 #
 # data <- riskout$data.out
@@ -405,5 +527,4 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
 # rownames(in.data) <- paste0("Incoming",1:20)
 # Incoming <- predictIncoming(Out$LASSO,in.data,surv.print = c(5,10,15),riskRefit = out$RiskRefit)
 #
-# lasso.results <- getResults_OC(Out$LASSO,numGroups=4,cuts = c(0.25,0.5,0.75),mut.data = T)
 

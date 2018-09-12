@@ -4,12 +4,12 @@
 \alias{predictIncoming}
 \title{predictIncoming}
 \usage{
-predictIncoming(OC_object, in.data, surv.print = NULL, riskRefit)
+predictIncoming(OC_object, new.data, surv.print = NULL, riskRefit)
 }
 \arguments{
 \item{OC_object}{Output of the OncoCast function.}
 
-\item{in.data}{New data set containing the information of the incoming patients. Should be a dataframe
+\item{new.data}{New data set containing the information of the incoming patients. Should be a dataframe
 with patients as rows and features as columns.}
 
 \item{surv.print}{A numeric vector indicating the patients for which the user wishes to print the predicted
@@ -36,9 +36,9 @@ test <- OncoCast(data=survData,formula=Surv(time,status)~.,
                           method=c("LASSO"),
                           runs = 25,cores = 1,sampling = "cv",
                           pathResults = "./Test/",studyType = "ExampleRun",save=F)
-in.data <- as.data.frame(matrix(rbinom(5*20,1,0.5),nrow=20,ncol = 5))
-colnames(in.data) <- c("ImpCov1","ImpCov2","ImpCov3","ImpCov4","Cov7")
-rownames(in.data) <- paste0("Incoming",1:20)
-Incoming <- predictIncoming(Out$LASSO,in.data,surv.print = c(5,10,15),riskRefit = out$RiskRefit)
+new.data <- as.data.frame(matrix(rbinom(5*20,1,0.5),nrow=20,ncol = 5))
+colnames(new.data) <- c("ImpCov1","ImpCov2","ImpCov3","ImpCov4","Cov7")
+rownames(new.data) <- paste0("Incoming",1:20)
+Incoming <- predictIncoming(Out$LASSO,new.data,surv.print = c(5,10,15),riskRefit = out$RiskRefit)
 
 }

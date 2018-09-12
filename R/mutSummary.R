@@ -38,7 +38,7 @@
 #' @import data.table
 
 
-mutSummary <- function(data,topHits,numGroups,geneList){
+mutSummary <- function(data,average.risk,topHits,numGroups,geneList){
 
   if(length(grep("time",colnames(data)))  == 1) {LT = FALSE}
   if(length(grep("time",colnames(data)))  == 2) {LT = TRUE}
@@ -331,8 +331,33 @@ mutSummary <- function(data,topHits,numGroups,geneList){
              xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
              yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
   }
+
+
+  ###### MUTATION PROFILE ######
+  to <- c(0,10)
+  from <- range(average.risk, na.rm = TRUE, finite = TRUE)
+  RiskScore <- (as.numeric(average.risk)-from[1])/diff(from)*diff(to)+to[1]
+  names(RiskScore) <- names(average.risk)
+  oo=order(RiskScore)
+
+  if(is.null(geneList)){
+    geneList <- topHits
+  }
+  mut=data[,match(geneList,colnames(data))]
+  mut=mut[names(RiskScore), ]
+  mut.sorted=t(mut)[,oo]
+
+  #bw=colorpanel(2, low="white", high="black")
+  n = nrow(data)
+  cols=colorpanel(n, low="green", high="red")
+  profiles <- heatmap.2(mut.sorted, dendrogram="none",  Rowv=NA, Colv=NA,
+            trace="none", labCol = "",
+            ColSideColors=cols,
+            key=FALSE, margins = c(0,7),
+            col=colorpanel(2, low="white", high="black"),
+            lwid=c(0.1,4), lhei=c(0.1,4))
+
   useGenes <- paste0(useGenes,collapse = ",")
-
-
-  return(list("mut_Plot" = mut_2LVLS,"PieChart"=pie.chart,"GenesUsed"=useGenes))
+  return(list("mut_Plot" = mut_2LVLS,"PieChart"=pie.chart,
+              "GenesUsed"=useGenes,"MutProfiles"=eval(profiles$call)))
 }

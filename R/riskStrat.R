@@ -35,6 +35,7 @@
 
 riskStrat <- function(data,average.risk,numGroups,cuts){
 
+
   MD <- 12
   if(length(grep("time",colnames(data)))  == 1) {LT = FALSE}
   if(length(grep("time",colnames(data)))  == 2) {LT = TRUE}

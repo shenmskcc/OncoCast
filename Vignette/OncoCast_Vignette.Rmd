@@ -1,0 +1,240 @@
+---
+  title: "OncoCast : Survival Prediction using Machine Learning Variable Selection "
+  author: "Ronglai Shen and Axel Martin"
+  package: OncoCast
+  output: 
+    html_document:
+      toc: true
+      toc_depth: 2
+  #   BiocStyle::html_document
+  # vignette: >
+  #   %\VignetteIndexEntry{Vignette Title}
+  #   %\VignetteEngine{knitr::rmarkdown}
+  #   %\VignetteEncoding{UTF-8}  
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(OncoCast)
+
+```
+
+
+# Overview
+
+We developed an integrative approach for comprehensive prognostic scoring. It relies on ensemble learning for outcome predictions using multiple types of data to generate a composite risk score enabling the user to perform staging of subjects. More specifically we perform Cox penalized regression methods (LASSO, RIDGE and elastic-net) and cross-valdition using genomic data. Using the multiple outputs of these statistical methods, we calculate a genomic risk score for each patient which allows us to stratify patients for survival. Moreover the multiple runs let’s us develop visualizations for gene importance.
+
+# Simulated Data
+
+Two simulated data sets have been implemented in the package. These are similar in nature as they both consist in survival data with varying number of generated binary genetic mutation features and subjects. Some features were set to be correlated with the outcome and should have higher importance, these were named ‘ImpCov#’. All the other features are simply named ‘Cov#’. Here is the code used to generate the data:
+
+```{r,eval=FALSE}
+## SETUP ###
+set.seed(3)
+ImpCovMin <- 1
+ImpCovMax <- 1.5
+n <- 300
+
+x.imp <- cbind(rbinom(n, 1, runif(1,0.1,0.5)),rbinom(n, 1, runif(1,0.1,0.5)),
+               rbinom(n, 1, runif(1,0.1,0.5)),rbinom(n, 1, runif(1,0.1,0.5)),
+               rbinom(n, 1, runif(1,0.1,0.5)))
+
+coefs <- c(runif(2,ImpCovMin,ImpCovMax),runif(3,-ImpCovMax,-ImpCovMin))
+x <- x.imp
+mu <- as.vector(coefs %*% t(x))
+
+time <- rexp(n,exp(mu))*12
+c <- runif(n,0,as.numeric(quantile(time,0.8)))
+status <- ifelse(time < c , 1,0)
+time <-pmin(time,c)
+
+numDummy <- 10
+DummyCov <- lapply(1:numDummy,function(x){
+  rbinom(n, 1, runif(1,0.1,0.2))
+})
+x.dumb <- do.call(cbind, DummyCov)
+x <- as.data.frame(cbind(x,x.dumb))
+
+data <- as.data.frame(cbind(time,status,x))
+colnames(data) <- c("time","status",paste0("ImpCov",1:ncol(x.imp)),paste0("Cov",(ncol(x.imp)+1):ncol(x)))
+rownames(data) <- paste0("Patient",1:n)
+survData <- data
+
+devtools::use_data(survData, internal = F,overwrite = T)
+```
+
+The first dataset contains only a time and censoring variable (named ‘survData’), respectively time and status.
+
+```{r,echo=T}
+### dataset 1
+dim(survData)
+head(survData[,1:7])
+```
+
+# Examples
+
+The functions contained in the package our complementary. The first performing the esemble learning through penalized regression and cross-validation. The second enabling exploration of the results in multiple grapical interfaces and summary tables. We will first use the OncoCast function to perform the cross-validated machine learning algorithm and then use the getResults_OC function that will let us interactively explore the results of the method.
+
+## Survival analysis
+
+### Algorithm Use
+
+The first step is to install the package and load it in the environment of your working directory.
+
+```{r}
+library(OncoCast)
+```
+
+We now have access to the integrated datasets in the package. It is important to note that as of now the method does not handle missing data -an imputation feature will be added in the future- so the two sets do not have any missing values.
+
+We start with the smaller dataset with no left-truncation for simplicity in this first example.
+
+```{r}
+anyNA(survData)
+dim(survData)
+```
+
+We observe we have 300 patients with 15 features of interest. Note that there are many available options for the OncoCast function and we recommend first time users go through the manual using the ??OncoCast command. This is necessary due to a large amount of parameters to set. A particularly important aspect concerns multithreading the user must ensure the machine the algorithm is being performed on will not be overloaded. Therefore use detectCores() before performing any analysis.
+
+Therefore this will be our first step. On my laptop I observe that I have access to 4 cores. In order to not overload my system I will set the number of cores to 2.
+
+```{r,message=F}
+library(doParallel)
+detectCores()
+```
+
+To ensure the quality of the results I will set the number of splits to 100 with a cross validation sampling during the splitting. We pipe the results to an R list object called Out.
+
+```{r}
+library(OncoCast)
+Out <- OncoCast(data=survData,formula = Surv(time,status)~.,sampling="cv",
+                cores=2,runs=100,method=c("LASSO","RIDGE"),save=F)
+```
+
+Once the run completed the user can access the results from the cross validation from each method using the '$' operator.
+
+```{r}
+length(Out$LASSO)
+str(Out$LASSO[[1]])
+```
+
+We observe that the Out$LASSO object is a list of length 100 (each index represents a split). Each of these objects themselves contains lists containing (as shown above) the method used, the data, the concordance index for that split, the reffited Cox Proportional hazard model using the penalized regression coefficients value found using the training set, and the predicted risk score for all the patients that fell in the testing set for that split.
+
+These results will be further fed in the getResults_OC function that will let us explore the results in more simplistic and efficient manner. This function takes in as arguments : <br>
+  - VarSelectObject : Which is a list object outputed by the OncoCast function <br>
+  - numGroups : a numeric argument that will set the number of risk groups to be made (default is 2 and can go up to 4) <br>
+  - cuts : a numeric vector of length numGroups - 1, will set the cuts that will be made in the data based on the predicted averaged risk (default the cut will be made at the median) <br>
+  - mut.data : a boolean value, in this case of binary mutational data this option will let the user explore the mutations in the different risk groups generated <br>
+  
+  
+We will see how to use this function only with the LASSO output generated above.
+  
+```{r,message=F}
+lasso.results <- getResults_OC(Out$LASSO,data=survData,numGroups=4,cuts = c(0.25,0.5,0.75),mut.data = T)
+```
+
+### Distribution of risk score
+
+The lasso.results object is a list with a lot of different plots and tables. We start with the observation of the risk score generated, its refit as a predictor in a Cox proportional hazard model, and the cross-validated concordance index distribution.
+
+```{r,include=F}
+library(knitr)
+```
+
+```{r}
+lasso.results$RiskHistogram
+lasso.results$RiskScoreSummary
+kable(summary(lasso.results$RiskRefit)$coefficients)
+lasso.results$ciSummary
+```
+
+
+The histogram shows the distribution of the composite risk score assigned to each patients. This was rescaled from 0 to 10 for simplicity. We moreover find that the composite risk score is a significant predictor of surival in this cohort.
+
+It is important to assess how predictive this model is. We find that our penalized regression model does well in predicting survival of the patients in our set with a median concordance index of 0.78.
+
+### Feature Selection 
+
+
+In order to explore feature selection two plots are available, the first is a simple bar plot of the selection frequency of the most frequently selected features. The second has more depth, it lets the user interactively explore the selection and coefficients of all the features at once. As the user hovers over the points the name of the gene represented by that point along with the average hazard for a mutation on that gene.
+
+```{r,fig.width=9}
+lasso.results$inflPlot
+lasso.results$selectInflPlot
+```
+
+
+As expected we observe on the bar plot that the features that were simulated to be correlated with the outcome have been selected much more frequently than all the other features.
+
+The volcano plot shows the frequency at which each feature was selected in the 100 splits we have generated by the mean penalized coefficients found in the cross-validation. Note that the size and color of the points are linked to the mutation frequency of each feature. We observe now that not only do the important covariates have higher selection frequency but also much larger hazard ratios. 
+
+### Survival Stratification 
+
+As mentioned above the numGroups argument will enable the user to create between 2 and 4 groups that are made by making specified cuts (using the cuts argument) in the averaged predicted risk score. In this example we made four groups with cuts at 25%, 50% and 75%, meaning that the first group corresponds to the patients in the lowest quartile of the predicted risk score (0 <= predicted risk score <= 4.15). We can check how distinct the groups we have created using a Kaplan-Meier plot, we see below that the groups we have generated a clearly separated using the quartiles of the predicted score (with a very small log-rank test p-value).
+
+```{r,fig.width=9}
+lasso.results$KM_Plot
+```
+
+
+### Mutational profiles per groups
+
+
+Furthermore two other tools contained in the output of this function let us explore the distribution of features per group generated. Note that this is only possible with binary data at the moment. The first plot is simple bar plot of the number of mutation events for the most frequently selected genes per group.
+
+```{r,fig.width=9}
+lasso.results$mut_Plot
+```
+
+The limitation of this plot is that we can not explore the combinations of genes that may lead to higher or lower risk. In order to perform this, the getResults_OC function returns a second interactive plot. It is a multiple pie chart plot where each pie represent a risk group (in increasing order of risk), as the user hovers over different slices of the pies the name of the mutated genes in that profile along with the number of patients showing that profile and the proportion of patients in that risk group they represent.
+
+To ensure that the number different possible profiles is not too high and ensure that the plot remains readable we limit to the use of the top five most frequently selected genes. The user can also specify the features to be used to generate the pie chart by inputting a character vector containing the exact names of the features into the geneList argument (which is defaulted to be the top 5 most frequently selected genes).
+
+
+```{r,fig.height=7,fig.width=10}
+lasso.results$PieChart
+```
+
+As an example, if the user hovers on the most right pie, on the dark red slice we can read that 21 patients (or 28%) in the high risk group have the ImpCov2 and ImpCov3 comutation.
+
+### Validation and prediction module
+
+The last available function in the package enables the user to input a set of new patients with features overlapping those 
+found in the original patient set and retrieve these new patients genetic risk score and plot predicted survival curves. Here we generate a random set of patients with random mutations for a subset of features of our original data.
+
+```{r}
+new.data <- as.data.frame(matrix(rbinom(15*100,1,0.5),nrow=100,ncol = 15))
+colnames(new.data) <- c("ImpCov1","ImpCov2","ImpCov3","ImpCov4","ImpCov5","Cov6","Cov7",
+                        "Cov8","Cov9","Cov10")
+rownames(new.data) <- paste0("Incoming",1:100)
+Incoming <- predictIncoming(Out$LASSO,new.data,surv.print = c(5,10,15),riskRefit = lasso.results$RiskRefit)
+```
+
+Here are the different objects outputted by this function, first a data frame of the new patients data with an added column containing the predicted genetic risk score for those patients.
+
+```{r}
+head(Incoming$data.out)
+```
+
+Second is a histogram showing the distribution of those predicted genetic risk scores.
+
+```{r}
+Incoming$RiskHist
+```
+
+Finally an interactive survival plot of the patients selected using the surv.print function. As the user hovers over the different points extra information will be displayed.
+
+```{r}
+Incoming$IncKM
+```
+
+
+## Left-truncated Survival analysis
+
+This method is built to enable the user to perform a left-truncated survival analysis. This issue is relatively common in cancer research, were patients were diagnosticated with the pathology before being sequenced. A simple change in the formula argument will suffice to do this. Taking a simple example with the survData.LT data included in the package, we see that the time and status variables are named time1 (for the late-entry time), time2 (for the survival time) and status (for the censoring). An example of such data can be found in the ‘survData.LT’ set.
+
+```{r}
+head(survData.LT[,1:5]) 
+```
+
+The user simply needs to use the argument : <u>formula = Surv(time1,time2,status~.)</u>

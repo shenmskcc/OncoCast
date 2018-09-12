@@ -5,7 +5,7 @@
 #' those results. The user can retrieve the genetic risk score of those new patients and their predicted survival curves.
 #'
 #' @param OC_object Output of the OncoCast function.
-#' @param in.data New data set containing the information of the incoming patients. Should be a dataframe
+#' @param new.data New data set containing the information of the incoming patients. Should be a dataframe
 #' with patients as rows and features as columns.
 #' @param surv.print A numeric vector indicating the patients for which the user wishes to print the predicted
 #' survival curves.
@@ -21,10 +21,10 @@
 #'                           method=c("LASSO"),
 #'                           runs = 25,cores = 1,sampling = "cv",
 #'                           pathResults = "./Test/",studyType = "ExampleRun",save=F)
-#' in.data <- as.data.frame(matrix(rbinom(5*20,1,0.5),nrow=20,ncol = 5))
-#' colnames(in.data) <- c("ImpCov1","ImpCov2","ImpCov3","ImpCov4","Cov7")
-#' rownames(in.data) <- paste0("Incoming",1:20)
-#' Incoming <- predictIncoming(Out$LASSO,in.data,surv.print = c(5,10,15),riskRefit = out$RiskRefit)
+#' new.data <- as.data.frame(matrix(rbinom(5*20,1,0.5),nrow=20,ncol = 5))
+#' colnames(new.data) <- c("ImpCov1","ImpCov2","ImpCov3","ImpCov4","Cov7")
+#' rownames(new.data) <- paste0("Incoming",1:20)
+#' Incoming <- predictIncoming(Out$LASSO,new.data,surv.print = c(5,10,15),riskRefit = out$RiskRefit)
 #'
 #' @import survival
 #' @import ggplot2
@@ -36,8 +36,9 @@
 #' @import survminer
 #' @import data.table
 
-predictIncoming <- function(OC_object,in.data,surv.print= NULL,riskRefit){
+predictIncoming <- function(OC_object,new.data,surv.print= NULL,riskRefit){
 
+  OC_object <- Filter(Negate(is.null), OC_object)
   # get all information needed from the oncocast object
   # 1. risk
   final.pred <- sapply(OC_object,"[[","predicted")
@@ -53,9 +54,9 @@ predictIncoming <- function(OC_object,in.data,surv.print= NULL,riskRefit){
   features <- colnames(LassoFits)
 
 
-  if(!all(is.na(match(colnames(in.data),features)))){
-    matched.genes <- c(na.omit(match(colnames(in.data),features)))
-    new.dat <- in.data[,which(!is.na(match(colnames(in.data),features)))]
+  if(!all(is.na(match(colnames(new.data),features)))){
+    matched.genes <- c(na.omit(match(colnames(new.data),features)))
+    new.dat <- new.data[,which(!is.na(match(colnames(new.data),features)))]
 
     ## ADD ALL MISSING GENES TO BE ALL zero ##
     missing <- features[which(is.na(match(features,colnames(new.dat))))]
@@ -84,20 +85,20 @@ predictIncoming <- function(OC_object,in.data,surv.print= NULL,riskRefit){
     names(Risk) <- rownames(new.dat)
     # Risk.all <- as.matrix(coefs) %*% as.matrix(t(new.dat))
     # Risk <- apply(Risk.all,2,mean)
-    #in.data$Risk <- Risk
+    #new.data$Risk <- Risk
     ##########################################
     ori.risk.range <- range(ori.risk)
-    in.data$OncoCastRiskScore <- rescale(Risk, to = c(0, 10), from = ori.risk.range) #WithOriginal
-    #in.data$rescaledRisk <- rescale(in.data$Risk, to = c(0, 10), from = range(in.data$Risk, na.rm = TRUE, finite = TRUE))
-    RiskHistogram.new <- ggplot(in.data, aes(x = OncoCastRiskScore, y = ..density..)) +
+    new.data$OncoCastRiskScore <- rescale(Risk, to = c(0, 10), from = ori.risk.range) #WithOriginal
+    #new.data$rescaledRisk <- rescale(new.data$Risk, to = c(0, 10), from = range(new.data$Risk, na.rm = TRUE, finite = TRUE))
+    RiskHistogram.new <- ggplot(new.data, aes(x = OncoCastRiskScore, y = ..density..)) +
       geom_histogram(show.legend = FALSE, aes(fill=..x..),
-                     breaks=seq(min(in.data$OncoCastRiskScore,na.rm = T), max(in.data$OncoCastRiskScore,na.rm = T))) +#, by=20/nrow(in.data))) +
+                     breaks=seq(min(new.data$OncoCastRiskScore,na.rm = T), max(new.data$OncoCastRiskScore,na.rm = T))) +#, by=20/nrow(new.data))) +
       geom_density(show.legend = FALSE) +
       theme_minimal() +
       labs(x = "Average risk score", y = "Density") +
       scale_fill_gradient(high = "red", low = "green")
 
-    #return(list("RiskHistogram.new"=RiskHistogram.new,"out.data"=in.data))
+    #return(list("RiskHistogram.new"=RiskHistogram.new,"out.data"=new.data))
 
   }
   else{
@@ -109,7 +110,7 @@ predictIncoming <- function(OC_object,in.data,surv.print= NULL,riskRefit){
   ####################################################
 
   if(!is.null(surv.print)){
-    mut <- in.data[surv.print,]
+    mut <- new.data[surv.print,]
     colnames(mut)[ncol(mut)] <- "RiskScore"
 
     allSurvs <- data.frame(nrow= 5)
@@ -119,10 +120,10 @@ predictIncoming <- function(OC_object,in.data,surv.print= NULL,riskRefit){
       rownames(survival.probs) <- c("Patient","Surv","Lower","Upper","Time","OncoRiskScore")
       surv.temp <- survfit(riskRefit, newdata = mut[j,])
       for(i in 1:ncol(survival.probs)){
-        survival.probs[,i] <- c(rownames(mut)[j],as.numeric(summary(surv.temp, times = (i*3-3))$surv),
+        survival.probs[,i] <- try(c(rownames(mut)[j],as.numeric(summary(surv.temp, times = (i*3-3))$surv),
                                 round(summary(surv.temp, times = (i*3-3))$lower,digits=2),
                                 round(summary(surv.temp, times = (i*3-3))$upper,digits=2),
-                                i*3-3,as.numeric(mut$RiskScore[j]))
+                                i*3-3,as.numeric(mut$RiskScore[j])),silent=T)
       }
       allSurvs <- cbind(allSurvs,survival.probs)
     }
@@ -155,6 +156,6 @@ predictIncoming <- function(OC_object,in.data,surv.print= NULL,riskRefit){
 
   }
   else{IndSurvKM = NULL}
-  return(list("data.out" = in.data,"RiskHist"=RiskHistogram.new,"IncKM" = IndSurvKM))
+  return(list("data.out" = new.data,"RiskHist"=RiskHistogram.new,"IncKM" = IndSurvKM))
 }
-#predictIncoming(OC_object,in.data,surv.print,riskRefit)
+#predictIncoming(OC_object,new.data,surv.print,riskRefit)

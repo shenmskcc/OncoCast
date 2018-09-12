@@ -5,8 +5,8 @@
 \title{OncoCast}
 \usage{
 OncoCast(data, formula, method = c("LASSO", "RIDGE", "ENET"), runs = 100,
-  sampling = "cv", cores = 1, pathResults = "", studyType = "",
-  save = T)
+  sampling = "cv", cores = 1, nonPenCol = NULL, pathResults = "",
+  studyType = "", save = T)
 }
 \arguments{
 \item{data}{Data frame with variables as columns and patients as rows. Must have no missing data and should contain only the outcome and the predictors to be used.
@@ -27,6 +27,8 @@ Default is cross-validation.}
 \item{cores}{If you wish to run this function in parallel set the number of cores to be used to be greater than 1. Default is 1.
 CAUTION : Overloading your computer can lead to serious issues, please check how many cores are available on your machine
 before selecting an option!}
+
+\item{nonPenCol}{Name of variables you do not with to penalize (available only for LASSO, RIDGE and ENET methods). Default is NULL.}
 
 \item{pathResults}{String of where the users wishes to output the results. Default is current directory.}
 
