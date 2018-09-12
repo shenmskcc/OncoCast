@@ -36,14 +36,6 @@
 
 outputSummary <- function(OC_object,data){
 
-  library(plotly)
-  library(reshape2)
-  library(ggplot2)
-  library(scales)
-  library(survminer)
-  library(data.table)
-  library(survival)
-  library(plyr)
 
   OC_object <- Filter(Negate(is.null), OC_object)
 

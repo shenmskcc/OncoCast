@@ -23,4 +23,20 @@ Imports:
     reshape2,
     scales,
     survminer,
-    data.table
+    data.table,
+    gplots
+Depends: 
+    survival,
+    penalized,
+    foreach,
+    doParallel,
+    party,
+    stats,
+    ggplot2,
+    plotly,
+    plyr,
+    reshape2,
+    scales,
+    survminer,
+    data.table,
+    gplots

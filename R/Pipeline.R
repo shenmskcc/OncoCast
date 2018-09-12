@@ -57,10 +57,6 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
                      nonPenCol = NULL,
                      pathResults = "",studyType = "",save = T){
 
-  # load libraries
-  library(foreach)
-  library(doParallel)
-
   # Missingness
   if(anyNA(data)){
     stop("ERROR : Missing data is not allowed at this time, please remove or impute missing data.")
@@ -73,6 +69,8 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
     stop("ERROR : This sampling method is not available. OPTIONS : 'cv' or 'boot'.")
   }
 
+  if(runs < 0){stop("The number of cross-validation/bootstraps MUST be positive.")}
+  else if(runs < 50){warning("We do not recommend using a number of cross-validation/bootstraps lower than 50.")}
 
   ### Prepare cores
   cl <- makeCluster(cores)
@@ -109,13 +107,6 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
   if("LASSO" %in% method) {
     print("LASSO SELECTED")
     LASSO <- foreach(run=1:runs) %dopar% {
-
-      #load into for each
-      library(survival)
-      library(penalized)
-      library(foreach)
-      library(doParallel)
-      library(stats)
 
       ### BUILD TRAINING AND TESTING SET ###
       set.seed(run)
@@ -208,13 +199,6 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
   if("RIDGE" %in% method) {
     print("RIDGE SELECTED")
     RIDGE <- foreach(run=1:runs) %dopar% {
-
-      #load into for each
-      library(survival)
-      library(penalized)
-      library(foreach)
-      library(doParallel)
-      library(stats)
 
       ### BUILD TRAINING AND TESTING SET ###
       set.seed(run)
@@ -311,11 +295,6 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
   if("ENET" %in% method) {
     print("ENET SELECTED")
     ENET <- foreach(run=1:runs) %dopar% {
-      library(survival)
-      library(penalized)
-      library(foreach)
-      library(doParallel)
-      library(stats)
 
       ### BUILD TRAINING AND TESTING SET ###
       set.seed(run)
@@ -495,9 +474,9 @@ OncoCast <- function(data,formula, method = c("LASSO","RIDGE","ENET"),
 
 # library(OncoCast)
 # Out <- OncoCast(data=survData,formula = Surv(time,status)~.,sampling="cv",
-#                 nonPenCol = c("Cov7","Cov10"),
-#                 cores=2,runs=25,method=c("ENET"),save=F)
-# lasso.results <- getResults_OC(Out$ENET,data=survData,numGroups=4,cuts = c(0.25,0.5,0.75),mut.data = T)
+#                 nonPenCol = NULL,
+#                 cores=2,runs=25,method=c("LASSO"),save=F)
+# lasso.results <- getResults_OC(Out$LASSO,data=survData,numGroups=4,cuts = c(0.25,0.5,0.75),mut.data = T)
 #
 # lasso.results$MutProfiles
 # revRowInd <- match(c(1:length(lasso.results$MutProfiles$rowInd)), lasso.results$MutProfiles$rowInd)

@@ -203,6 +203,7 @@ The last available function in the package enables the user to input a set of ne
 found in the original patient set and retrieve these new patients genetic risk score and plot predicted survival curves. Here we generate a random set of patients with random mutations for a subset of features of our original data.
 
 ```{r}
+set.seed(3)
 new.data <- as.data.frame(matrix(rbinom(15*100,1,0.5),nrow=100,ncol = 15))
 colnames(new.data) <- c("ImpCov1","ImpCov2","ImpCov3","ImpCov4","ImpCov5","Cov6","Cov7",
                         "Cov8","Cov9","Cov10")

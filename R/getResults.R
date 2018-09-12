@@ -58,16 +58,6 @@ getResults_OC <- function(OC_object,data,numGroups=2,cuts=0.5,geneList=NULL,mut.
   if(!(numGroups %in% 2:4)) {stop("ERROR : You must use a number of groups between 2 and 4. We are working on implementing a broader version")}
   if(max(cuts) >= 1 || min(cuts) <= 0){stop("ERROR : You must select cuts that are between 0 and 1 (Not included).")}
 
-  library(plotly)
-  library(reshape2)
-  library(ggplot2)
-  library(scales)
-  library(survminer)
-  library(data.table)
-  library(survival)
-  library(plyr)
-  library(gplots)
-
   OC_object <- Filter(Negate(is.null), OC_object)
 
   ## determine if left truncated
@@ -99,14 +89,14 @@ getResults_OC <- function(OC_object,data,numGroups=2,cuts=0.5,geneList=NULL,mut.
     pie.chart <- mut.results$PieChart
     mut_2LVLS <- mut.results$mut_Plot
     useGenes <- mut.results$GenesUsed
-    MutProfiles <- mut.results$MutProfiles
+    #MutProfiles <- mut.results$MutProfiles
   }
   #####################################
   else{
     pie.chart <- NULL
     mut_2LVLS <- NULL
     useGenes <- NULL
-    MutProfiles <- NULL
+    #MutProfiles <- NULL
   }
 
   return(list("ciSummary" = basic.results$ciSummary,"inflPlot" = basic.results$inflPlot,
@@ -116,8 +106,9 @@ getResults_OC <- function(OC_object,data,numGroups=2,cuts=0.5,geneList=NULL,mut.
               "RiskHistogram"=basic.results$RiskHistogram,"Fits"=basic.results$Fits,"time.type"=basic.results$time.type,
               "RiskScoreSummary"=basic.results$RiskScoreSummary,
               "KM_Plot" = strat.results$KM_Plot,"SurvSum" = strat.results$SurvSum,
-              "mut_Plot" = mut_2LVLS,"PieChart"=pie.chart,"GenesUsed"=useGenes,
-              "MutProfiles"=MutProfiles))
+              "mut_Plot" = mut_2LVLS,"PieChart"=pie.chart,"GenesUsed"=useGenes))
+              # ,
+              # "MutProfiles"=MutProfiles))
 
 }
 
