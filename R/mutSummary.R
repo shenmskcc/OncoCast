@@ -3,7 +3,9 @@
 #' Let's the user explore the distribution of the mutational profiles by risk groups. Only works with binary predictors.
 #' @param data The data used for the upstream analysis with an extract column indicating the risk group of each patients.
 #' Can be obtained from the output of the riskStrat function.
-#' @topHist The name of the most frequently selected genes (note will be overthrown by the geneList argument).
+#' @param average.risk The average risk score assigned to each patient. This vector can be retrieved
+#' by using the outputSummary's function output.
+#' @param topHist The name of the most frequently selected genes (note will be overthrown by the geneList argument).
 #' @param numGroups The number of groups to be made when stratifying by risk groups. Options are 2,3 and 4 (for now implementing
 #' broader version). Default is 2.
 #' @param cuts Numeric vector of the points in the distribution of risk scores where groups will be splitted. Needs to be of length
