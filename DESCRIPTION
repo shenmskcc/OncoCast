@@ -23,8 +23,7 @@ Imports:
     reshape2,
     scales,
     survminer,
-    data.table,
-    gplots
+    data.table
 Depends: 
     survival,
     penalized,
@@ -38,5 +37,4 @@ Depends:
     reshape2,
     scales,
     survminer,
-    data.table,
-    gplots
+    data.table

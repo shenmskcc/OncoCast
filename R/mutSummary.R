@@ -36,7 +36,6 @@
 #' @import scales
 #' @import survminer
 #' @import data.table
-#' @import gplots
 
 
 mutSummary <- function(data,average.risk,topHits,numGroups,geneList){
@@ -85,15 +84,15 @@ mutSummary <- function(data,average.risk,topHits,numGroups,geneList){
 
   ### FIT topHits ###
   if(LT) {
-    fit.data <- data[,match(c("time1","time2","status",topHits[1:5]),colnames(data))]
+    fit.data <- data[,match(c("time1","time2","status",topHits[1:min(5,length(topHits))]),colnames(data))]
     fit.topHits <- coxph(Surv(time1,time2,status)~.,data= fit.data)}
   if(!LT) {
-    fit.data <- data[,match(c("time","status",topHits[1:5]),colnames(data))]
+    fit.data <- data[,match(c("time","status",topHits[1:min(5,length(topHits))]),colnames(data))]
     fit.topHits <- coxph(Surv(time,status)~.,data= fit.data)
   }
 
   ####
-  if(length(geneList) == 0) {useGenes <- topHits[1:5]}
+  if(length(geneList) == 0) {useGenes <- topHits[1:min(5,length(topHits))]}
   else{
     geneList <- gsub(" ","",geneList)
     useGenes <- geneList}

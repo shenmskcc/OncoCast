@@ -77,7 +77,8 @@ outputSummary <- function(OC_object,data){
     length(which(x!=0))/length(x)
   })
 
-  topHits <- names(selectFreq[selectFreq > 0.5])
+  if(length(selectFreq[selectFreq > 0.5]) > 2) topHits <- names(selectFreq[selectFreq > 0.5])
+  else topHits <- names(selectFreq[order(selectFreq,decreasing = T)])[1:10]
   ## get mu freq
   if(LT) data.temp <- data[,-c(1:3)]
   if(!LT) data.temp <- data[,-c(1:2)]

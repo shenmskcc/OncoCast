@@ -48,7 +48,6 @@
 #' @import scales
 #' @import survminer
 #' @import data.table
-#' @import gplots
 
 
 getResults_OC <- function(OC_object,data,numGroups=2,cuts=0.5,geneList=NULL,mut.data=F){
